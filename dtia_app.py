@@ -1,14 +1,11 @@
-
 import streamlit as st
 from dtia_trading_alerts import run_full_strategy
 
-st.set_page_config(page_title="DTIA Trading Alerts", layout="centered")
+st.set_page_config(page_title="Tradingkid", layout="centered")
+st.title("📈 Tradingkid")
 
-st.title("📈 DTIA Trading Assistant")
-
-# Prüfe auf automatisierten Trigger via URL
-query_params = st.st.query_params.get_all()
-auto_run = query_params.get("run", ["false"])[0].lower() == "true"
+# Query-Parameter auslesen über neues API (ab Streamlit 1.34)
+auto_run = st.query_params.get("run", ["false"])[0].lower() == "true"
 
 if auto_run:
     st.info("🚀 Automatisierter Run gestartet...")
