@@ -80,105 +80,46 @@ def get_top_signals(symbols):
 
 
 def run_full_strategy():
-    message = f"🚨 DTIA Multi-Market Picks für {datetime.now().strftime('%d.%m.%Y')}\n"
+    sections = []  # Für saubere Nachricht zusammensetzung
+    header = f"🚨 DTIA Multi-Market Picks für {datetime.now().strftime('%d.%m.%Y')}\n"
 
     # US Stocks
+    us_block = "🇺🇸 US Stocks\n"
     us_symbols = get_us_top_gainers()
-    message += "\n🇺🇸 US Stocks\n"
     if not us_symbols:
-        message += "❌ Es konnten keine Daten von Finviz gelesen werden.\n"
+        us_block += "❌ Es konnten keine Daten von Finviz gelesen werden.\n"
     else:
         us_signals = get_top_signals(us_symbols)
         if us_signals:
             for i, p in enumerate(us_signals, 1):
-                message += f"{i}️⃣ {p['symbol']} – {p['direction']} {p['signal_strength']}\n"
-                message += f"Entry: {p['entry']} | SL: {p['stop']} | TP: {p['target']}\n"
+                us_block += f"{i}️⃣ {p['symbol']} – {p['direction']} {p['signal_strength']}\n"
+                us_block += f"Entry: {p['entry']} | SL: {p['stop']} | TP: {p['target']}\n"
         else:
-            message += "⚠️ Keine gute Aktie gefunden.\n"
+            us_block += "⚠️ Keine gute Aktie gefunden.\n"
+    sections.append(us_block)
 
     # DAX Stocks
-    message += "\n🇩🇪 DAX Picks\n"
-    if not DAX_SYMBOLS:
-        message += "❌ Es konnten keine DAX-Daten gelesen werden.\n"
-    else:
-        dax_signals = get_top_signals(DAX_SYMBOLS)
-        if dax_signals:
-            for i, p in enumerate(dax_signals, 1):
-                message += f"{i}️⃣ {p['symbol']} – {p['direction']} {p['signal_strength']}\n"
-                message += f"Entry: {p['entry']} | SL: {p['stop']} | TP: {p['target']}\n"
-        else:
-            message += "⚠️ Keine gute Aktie gefunden.\n"
-
-    # Krypto
-    message += "\n₿ Crypto Picks\n"
-    if not CRYPTO_SYMBOLS:
-        message += "❌ Es konnten keine Kryptodaten gelesen werden.\n"
-    else:
-        crypto_signals = get_top_signals(CRYPTO_SYMBOLS)
-        if crypto_signals:
-            for i, p in enumerate(crypto_signals, 1):
-                message += f"{i}️⃣ {p['symbol']} – {p['direction']} {p['signal_strength']}\n"
-                message += f"Entry: {p['entry']} | SL: {p['stop']} | TP: {p['target']}\n"
-        else:
-            message += "⚠️ Keine gute Kryptowährung gefunden.\n"
-
-    send_telegram_alert(message)
-
-
-    # US Stocks
-    us_symbols = get_us_top_gainers()
-    if not us_symbols:
-        message += "\n🇺🇸 US Stocks\n❌ Es konnten keine Daten von Finviz gelesen werden.\n"
-    else:
-        us_signals = get_top_signals(us_symbols)
-        message += "\n🇺🇸 US Stocks\n"
-        if us_signals:
-            for i, p in enumerate(us_signals, 1):
-                message += f"{i}️⃣ {p['symbol']} – {p['direction']} {p['signal_strength']}\n"
-                message += f"Entry: {p['entry']} | SL: {p['stop']} | TP: {p['target']}\n"
-        else:
-            message += "⚠️ Keine gute Aktie gefunden.\n"
-
-    # DAX Stocks
-    message += "\n🇩🇪 DAX Picks\n"
+    dax_block = "🇩🇪 DAX Picks\n"
     dax_signals = get_top_signals(DAX_SYMBOLS)
     if dax_signals:
         for i, p in enumerate(dax_signals, 1):
-            message += f"{i}️⃣ {p['symbol']} – {p['direction']} {p['signal_strength']}\n"
-            message += f"Entry: {p['entry']} | SL: {p['stop']} | TP: {p['target']}\n"
+            dax_block += f"{i}️⃣ {p['symbol']} – {p['direction']} {p['signal_strength']}\n"
+            dax_block += f"Entry: {p['entry']} | SL: {p['stop']} | TP: {p['target']}\n"
     else:
-        message += "⚠️ Keine gute Aktie gefunden.\n"
+        dax_block += "⚠️ Keine gute Aktie gefunden.\n"
+    sections.append(dax_block)
 
     # Krypto
-    message += "\n₿ Crypto Picks\n"
+    crypto_block = "₿ Crypto Picks\n"
     crypto_signals = get_top_signals(CRYPTO_SYMBOLS)
     if crypto_signals:
         for i, p in enumerate(crypto_signals, 1):
-            message += f"{i}️⃣ {p['symbol']} – {p['direction']} {p['signal_strength']}\n"
-            message += f"Entry: {p['entry']} | SL: {p['stop']} | TP: {p['target']}\n"
+            crypto_block += f"{i}️⃣ {p['symbol']} – {p['direction']} {p['signal_strength']}\n"
+            crypto_block += f"Entry: {p['entry']} | SL: {p['stop']} | TP: {p['target']}\n"
     else:
-        message += "⚠️ Keine gute Kryptowährung gefunden.\n"
+        crypto_block += "⚠️ Keine gute Kryptowährung gefunden.\n"
+    sections.append(crypto_block)
 
-    send_telegram_alert(message)
-
-
-    us_symbols = get_us_top_gainers()
-    us_signals = get_top_signals(us_symbols)
-    message += "\n🇺🇸 US Stocks\n"
-    for i, p in enumerate(us_signals, 1):
-        message += f"{i}️⃣ {p['symbol']} – {p['direction']} {p['signal_strength']}\n"
-        message += f"Entry: {p['entry']} | SL: {p['stop']} | TP: {p['target']}\n"
-
-    dax_signals = get_top_signals(DAX_SYMBOLS)
-    message += "\n🇩🇪 DAX Picks\n"
-    for i, p in enumerate(dax_signals, 1):
-        message += f"{i}️⃣ {p['symbol']} – {p['direction']} {p['signal_strength']}\n"
-        message += f"Entry: {p['entry']} | SL: {p['stop']} | TP: {p['target']}\n"
-
-    crypto_signals = get_top_signals(CRYPTO_SYMBOLS)
-    message += "\n₿ Crypto Picks\n"
-    for i, p in enumerate(crypto_signals, 1):
-        message += f"{i}️⃣ {p['symbol']} – {p['direction']} {p['signal_strength']}\n"
-        message += f"Entry: {p['entry']} | SL: {p['stop']} | TP: {p['target']}\n"
-
-    send_telegram_alert(message)
+    # Nachricht zusammenbauen
+    full_message = header + "\n".join(sections)
+    send_telegram_alert(full_message)
