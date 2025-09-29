@@ -1,15 +1,8 @@
-from flask import Flask, request
+import streamlit as st
 from dtia_trading_alerts import run_full_strategy
-
-app = Flask(__name__)
-
-@app.route("/run", methods=["GET"])
-def run_strategy():
-    try:
-        run_full_strategy()
-        return "✅ Strategie wurde erfolgreich ausgeführt.", 200
-    except Exception as e:
-        return f"❌ Fehler: {str(e)}", 500
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
+st.set_page_config(page_title="Tradingkid", layout="centered")
+st.title("📈 Tradingkid")
+st.markdown("**Top 3 Picks täglich für US, DAX & Krypto**")
+if st.button("🚀 Neue Signale abrufen & per Telegram senden"):
+    run_full_strategy()
+    st.success("✅ Signale wurden berechnet & gesendet!")
