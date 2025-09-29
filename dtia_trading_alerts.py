@@ -9,7 +9,7 @@ import warnings
 import logging
 
 # === KONFIGURATION ==
-BOT_TOKEN = "7521010029:AAF87jAzPWf0Kjz9hdymPKnVbRamCVGmhZQ"
+TELEGRAM_TOKEN = "7521010029:AAF87jAzPWf0Kjz9hdymPKnVbRamCVGmhZQ"
 CHAT_ID = "6501591390"
 TOP_N = 10  # Anzahl Gainer, die von Yahoo gescannt werden
 
