@@ -1,7 +1,5 @@
-
-streamlit
 yfinance
+pandas
+numpy
 requests
-beautifulsoup4
-lxml
-plotly
+requests
