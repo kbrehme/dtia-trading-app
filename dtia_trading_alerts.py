@@ -130,11 +130,3 @@ def run_yahoo_gainers_analysis():
             )
 
     send_telegram_alert(message)
-
-# === Entry Point ===
-if __name__ == "__main__":
-    run_yahoo_gainers_analysis()
-
-
-    # Rückgabe für Streamlit-Chart
-    return all_signals
