@@ -7,7 +7,7 @@ st.set_page_config(page_title="DTIA Trading Alerts", layout="centered")
 st.title("📈 DTIA Trading Assistant")
 
 # Prüfe auf automatisierten Trigger via URL
-query_params = st.get_query_params()
+query_params = st.query_params()
 auto_run = query_params.get("run", ["false"])[0].lower() == "true"
 
 if auto_run:
