@@ -1,5 +1,7 @@
+streamlit
 yfinance
+beautifulsoup4
+requests
+lxml
 pandas
 numpy
-requests
-requests
