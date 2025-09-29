@@ -42,6 +42,7 @@ def get_us_top_gainers():
         print(f"❌ Fehler beim Yahoo Gainers Scraping: {e}")
         return []
 
+
 def generate_trade_signal(symbol):
     try:
         df = yf.download(symbol, period="5d", interval="1h")
