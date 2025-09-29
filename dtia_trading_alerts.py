@@ -14,18 +14,31 @@ def send_telegram_alert(message):
     requests.post(url, data=payload)
 
 def get_us_top_gainers():
-    url = "https://finviz.com/screener.ashx?v=111&s=ta_topgainers&f=cap_largeover,sh_avgvol_o1000&ft=4"
-    headers = {'User-Agent': 'Mozilla/5.0'}
-    response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.content, 'lxml')
-    table = soup.find_all('table')[6]
-    rows = table.find_all('tr')[1:]
-    symbols = []
-    for row in rows[:10]:
-        cols = row.find_all('td')
-        if cols:
-            symbols.append(cols[1].text)
-    return symbols[:3]
+    try:
+        url = "https://finviz.com/screener.ashx?v=111&s=ta_topgainers&f=cap_largeover,sh_avgvol_o1000&ft=4"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers)
+        soup = BeautifulSoup(response.content, 'lxml')
+
+        tables = soup.find_all('table')
+        if len(tables) < 7:
+            print("❌ Tabelle nicht gefunden.")
+            return []
+
+        table = tables[6]
+        rows = table.find_all('tr')[1:]  # Erste Zeile = Header
+        symbols = []
+
+        for row in rows[:10]:  # Nur Top 10 prüfen
+            cols = row.find_all('td')
+            if len(cols) > 1:
+                symbols.append(cols[1].text.strip())
+
+        return symbols[:3] if symbols else []
+    
+    except Exception as e:
+        print(f"❌ Fehler beim Abrufen der US-Gainer: {e}")
+        return []
 
 DAX_SYMBOLS = ["SAP.DE", "DTE.DE", "ALV.DE", "BMW.DE", "BAYN.DE", "VOW3.DE"]
 CRYPTO_SYMBOLS = ["BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "ADA-USD"]
