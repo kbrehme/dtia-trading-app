@@ -13,35 +13,34 @@ def send_telegram_alert(message):
     payload = {'chat_id': CHAT_ID, 'text': message}
     requests.post(url, data=payload)
 
+
 def get_us_top_gainers():
     try:
-        url = "https://finviz.com/screener.ashx?v=111&s=ta_topgainers&f=cap_largeover,sh_avgvol_o1000&ft=4"
+        url = "https://finance.yahoo.com/gainers"
         headers = {'User-Agent': 'Mozilla/5.0'}
         response = requests.get(url, headers=headers)
-        soup = BeautifulSoup(response.content, 'lxml')
+        soup = BeautifulSoup(response.text, 'lxml')
 
-        tables = soup.find_all('table')
-        if len(tables) < 7:
-            print("❌ Tabelle nicht gefunden.")
+        table = soup.find('table', attrs={'class': 'W(100%)'})
+        if not table:
+            print("❌ Yahoo Finance Gainers-Tabelle nicht gefunden.")
             return []
 
-        table = tables[6]
         rows = table.find_all('tr')[1:]  # Erste Zeile = Header
         symbols = []
 
-        for row in rows[:10]:  # Nur Top 10 prüfen
+        for row in rows[:10]:
             cols = row.find_all('td')
-            if len(cols) > 1:
-                symbols.append(cols[1].text.strip())
+            if len(cols) > 0:
+                symbol = cols[0].text.strip()
+                if symbol:
+                    symbols.append(symbol)
 
         return symbols[:3] if symbols else []
-    
-    except Exception as e:
-        print(f"❌ Fehler beim Abrufen der US-Gainer: {e}")
-        return []
 
-DAX_SYMBOLS = ["SAP.DE", "DTE.DE", "ALV.DE", "BMW.DE", "BAYN.DE", "VOW3.DE"]
-CRYPTO_SYMBOLS = ["BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "ADA-USD"]
+    except Exception as e:
+        print(f"❌ Fehler beim Yahoo Gainers Scraping: {e}")
+        return []
 
 def generate_trade_signal(symbol):
     try:
@@ -80,46 +79,162 @@ def get_top_signals(symbols):
 
 
 def run_full_strategy():
-    sections = []  # Für saubere Nachricht zusammensetzung
-    header = f"🚨 DTIA Multi-Market Picks für {datetime.now().strftime('%d.%m.%Y')}\n"
+    message = f"🚨 DTIA Multi-Market Picks für {datetime.now().strftime('%d.%m.%Y')}\n"
 
     # US Stocks
-    us_block = "🇺🇸 US Stocks\n"
     us_symbols = get_us_top_gainers()
+    message += "\n🇺🇸 US Stocks\n"
     if not us_symbols:
-        us_block += "❌ Es konnten keine Daten von Finviz gelesen werden.\n"
+        message += "❌ Es konnten keine Daten von Finviz gelesen werden.\n"
     else:
         us_signals = get_top_signals(us_symbols)
         if us_signals:
             for i, p in enumerate(us_signals, 1):
-                us_block += f"{i}️⃣ {p['symbol']} – {p['direction']} {p['signal_strength']}\n"
-                us_block += f"Entry: {p['entry']} | SL: {p['stop']} | TP: {p['target']}\n"
+                message += f"{i}️⃣ {p['symbol']} – {p['direction']} {p['signal_strength']}\n"
+                message += f"Entry: {p['entry']} | SL: {p['stop']} | TP: {p['target']}\n"
         else:
-            us_block += "⚠️ Keine gute Aktie gefunden.\n"
-    sections.append(us_block)
+            message += "⚠️ Keine gute Aktie gefunden.\n"
 
     # DAX Stocks
-    dax_block = "🇩🇪 DAX Picks\n"
+    message += "\n🇩🇪 DAX Picks\n"
+    if not DAX_SYMBOLS:
+        message += "❌ Es konnten keine DAX-Daten gelesen werden.\n"
+    else:
+        dax_signals = get_top_signals(DAX_SYMBOLS)
+        if dax_signals:
+            for i, p in enumerate(dax_signals, 1):
+                message += f"{i}️⃣ {p['symbol']} – {p['direction']} {p['signal_strength']}\n"
+                message += f"Entry: {p['entry']} | SL: {p['stop']} | TP: {p['target']}\n"
+        else:
+            message += "⚠️ Keine gute Aktie gefunden.\n"
+
+    # Krypto
+    message += "\n₿ Crypto Picks\n"
+    if not CRYPTO_SYMBOLS:
+        message += "❌ Es konnten keine Kryptodaten gelesen werden.\n"
+    else:
+        crypto_signals = get_top_signals(CRYPTO_SYMBOLS)
+        if crypto_signals:
+            for i, p in enumerate(crypto_signals, 1):
+                message += f"{i}️⃣ {p['symbol']} – {p['direction']} {p['signal_strength']}\n"
+                message += f"Entry: {p['entry']} | SL: {p['stop']} | TP: {p['target']}\n"
+        else:
+            message += "⚠️ Keine gute Kryptowährung gefunden.\n"
+
+    send_telegram_alert(message)
+
+
+    # US Stocks
+    us_symbols = get_us_top_gainers()
+    if not us_symbols:
+        message += "\n🇺🇸 US Stocks\n❌ Es konnten keine Daten von Finviz gelesen werden.\n"
+    else:
+        us_signals = get_top_signals(us_symbols)
+        message += "\n🇺🇸 US Stocks\n"
+        if us_signals:
+            for i, p in enumerate(us_signals, 1):
+                message += f"{i}️⃣ {p['symbol']} – {p['direction']} {p['signal_strength']}\n"
+                message += f"Entry: {p['entry']} | SL: {p['stop']} | TP: {p['target']}\n"
+        else:
+            message += "⚠️ Keine gute Aktie gefunden.\n"
+
+    # DAX Stocks
+    message += "\n🇩🇪 DAX Picks\n"
     dax_signals = get_top_signals(DAX_SYMBOLS)
     if dax_signals:
         for i, p in enumerate(dax_signals, 1):
-            dax_block += f"{i}️⃣ {p['symbol']} – {p['direction']} {p['signal_strength']}\n"
-            dax_block += f"Entry: {p['entry']} | SL: {p['stop']} | TP: {p['target']}\n"
+            message += f"{i}️⃣ {p['symbol']} – {p['direction']} {p['signal_strength']}\n"
+            message += f"Entry: {p['entry']} | SL: {p['stop']} | TP: {p['target']}\n"
     else:
-        dax_block += "⚠️ Keine gute Aktie gefunden.\n"
-    sections.append(dax_block)
+        message += "⚠️ Keine gute Aktie gefunden.\n"
 
     # Krypto
-    crypto_block = "₿ Crypto Picks\n"
+    message += "\n₿ Crypto Picks\n"
     crypto_signals = get_top_signals(CRYPTO_SYMBOLS)
     if crypto_signals:
         for i, p in enumerate(crypto_signals, 1):
-            crypto_block += f"{i}️⃣ {p['symbol']} – {p['direction']} {p['signal_strength']}\n"
-            crypto_block += f"Entry: {p['entry']} | SL: {p['stop']} | TP: {p['target']}\n"
+            message += f"{i}️⃣ {p['symbol']} – {p['direction']} {p['signal_strength']}\n"
+            message += f"Entry: {p['entry']} | SL: {p['stop']} | TP: {p['target']}\n"
     else:
-        crypto_block += "⚠️ Keine gute Kryptowährung gefunden.\n"
-    sections.append(crypto_block)
+        message += "⚠️ Keine gute Kryptowährung gefunden.\n"
 
-    # Nachricht zusammenbauen
-    full_message = header + "\n".join(sections)
-    send_telegram_alert(full_message)
+    send_telegram_alert(message)
+
+
+    us_symbols = get_us_top_gainers()
+    us_signals = get_top_signals(us_symbols)
+    message += "\n🇺🇸 US Stocks\n"
+    for i, p in enumerate(us_signals, 1):
+        message += f"{i}️⃣ {p['symbol']} – {p['direction']} {p['signal_strength']}\n"
+        message += f"Entry: {p['entry']} | SL: {p['stop']} | TP: {p['target']}\n"
+
+    dax_signals = get_top_signals(DAX_SYMBOLS)
+    message += "\n🇩🇪 DAX Picks\n"
+    for i, p in enumerate(dax_signals, 1):
+        message += f"{i}️⃣ {p['symbol']} – {p['direction']} {p['signal_strength']}\n"
+        message += f"Entry: {p['entry']} | SL: {p['stop']} | TP: {p['target']}\n"
+
+    crypto_signals = get_top_signals(CRYPTO_SYMBOLS)
+    message += "\n₿ Crypto Picks\n"
+    for i, p in enumerate(crypto_signals, 1):
+        message += f"{i}️⃣ {p['symbol']} – {p['direction']} {p['signal_strength']}\n"
+        message += f"Entry: {p['entry']} | SL: {p['stop']} | TP: {p['target']}\n"
+
+    send_telegram_alert(message)
+
+
+def get_dax_top_gainers():
+    try:
+        url = "https://de.finance.yahoo.com/gainers?e=XETRA"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers)
+        soup = BeautifulSoup(response.text, 'lxml')
+
+        table = soup.find('table', attrs={'class': 'W(100%)'})
+        if not table:
+            print("❌ DAX-Tabelle nicht gefunden.")
+            return []
+
+        rows = table.find_all('tr')[1:]
+        symbols = []
+
+        for row in rows[:10]:
+            cols = row.find_all('td')
+            if len(cols) > 0:
+                symbol = cols[0].text.strip()
+                if symbol.endswith(".DE"):  # Sicherstellen, dass es XETRA-Titel sind
+                    symbols.append(symbol)
+
+        return symbols[:3] if symbols else []
+
+    except Exception as e:
+        print(f"❌ Fehler beim DAX-Scraping: {e}")
+        return []
+
+def get_crypto_top_gainers():
+    try:
+        url = "https://finance.yahoo.com/cryptocurrencies"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers)
+        soup = BeautifulSoup(response.text, 'lxml')
+
+        table = soup.find('table', attrs={'class': 'W(100%)'})
+        if not table:
+            print("❌ Krypto-Tabelle nicht gefunden.")
+            return []
+
+        rows = table.find_all('tr')[1:]
+        symbols = []
+
+        for row in rows[:10]:
+            cols = row.find_all('td')
+            if len(cols) > 0:
+                symbol = cols[0].text.strip()
+                if symbol.endswith("-USD"):  # Nur Coins gegen USD
+                    symbols.append(symbol)
+
+        return symbols[:3] if symbols else []
+
+    except Exception as e:
+        print(f"❌ Fehler beim Krypto-Scraping: {e}")
+        return []
