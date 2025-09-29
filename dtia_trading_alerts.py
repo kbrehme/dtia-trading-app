@@ -1,4 +1,4 @@
-
+import plotly.graph_objects as go
 import datetime
 import yfinance as yf
 import pandas as pd
@@ -131,6 +131,43 @@ def analyze_and_format_signals(name, symbols):
     return message_block
 
 
+
+def plot_trade_chart(signal):
+    symbol = signal["symbol"]
+    direction = signal["direction"]
+    entry = signal["entry"]
+    stop = signal["stop"]
+    target = signal["target"]
+
+    end = datetime.datetime.utcnow()
+    start = end - datetime.timedelta(days=2)
+
+    df = yf.download(symbol, start=start.strftime('%Y-%m-%d'), end=end.strftime('%Y-%m-%d'), interval="30m")
+
+    if df.empty:
+        st.warning(f"📉 Keine Daten für {symbol}")
+        return
+
+    fig = go.Figure(data=[
+        go.Candlestick(
+            x=df.index,
+            open=df["Open"],
+            high=df["High"],
+            low=df["Low"],
+            close=df["Close"],
+            name="Kurs"
+        )
+    ])
+
+    fig.add_hline(y=entry, line_dash="dash", line_color="blue", annotation_text="Entry", annotation_position="top left")
+    fig.add_hline(y=stop, line_dash="dot", line_color="red", annotation_text="Stop", annotation_position="bottom left")
+    fig.add_hline(y=target, line_dash="dot", line_color="green", annotation_text="Target", annotation_position="top right")
+
+    fig.update_layout(title=f"{symbol} ({direction})", height=500)
+
+    st.plotly_chart(fig, use_container_width=True)
+
+
 def send_telegram_alert(message):
     url = f'https://api.telegram.org/bot{BOT_TOKEN}/sendMessage'
     payload = {'chat_id': CHAT_ID, 'text': message}
@@ -149,3 +186,4 @@ def run_full_strategy():
     message += analyze_and_format_signals("₿ Crypto Picks", crypto_symbols)
 
     send_telegram_alert(message)
+    return all_signals  # am Ende der Funktion
