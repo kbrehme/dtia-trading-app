@@ -175,15 +175,29 @@ def send_telegram_alert(message):
 
 
 def run_full_strategy():
-    message = f"🚨 DTIA Multi-Market Picks für {datetime.now().strftime('%d.%m.%Y')}\n"
+    all_signals = []
 
-    us_symbols = get_top_gainers_from_yahoo("https://finance.yahoo.com/gainers")
-    dax_symbols = get_top_gainers_from_yahoo("https://de.finance.yahoo.com/gainers?e=XETRA", suffix_filter=".DE")
-    crypto_symbols = get_top_gainers_from_yahoo("https://finance.yahoo.com/cryptocurrencies", suffix_filter="-USD")
+    # US Stocks
+    us_symbols = get_us_symbols_dynamically()
+    us_signals = [generate_trade_signal(sym) for sym in us_symbols]
+    us_signals = [s for s in us_signals if s is not None]
+    all_signals.extend(us_signals)
 
-    message += analyze_and_format_signals("🇺🇸 US Stocks", us_symbols)
-    message += analyze_and_format_signals("🇩🇪 DAX Picks", dax_symbols)
-    message += analyze_and_format_signals("₿ Crypto Picks", crypto_symbols)
+    # DAX
+    dax_symbols = get_dax_symbols_dynamically()
+    dax_signals = [generate_trade_signal(sym) for sym in dax_symbols]
+    dax_signals = [s for s in dax_signals if s is not None]
+    all_signals.extend(dax_signals)
 
+    # Crypto
+    crypto_symbols = get_crypto_symbols_dynamically()
+    crypto_signals = [generate_trade_signal(sym) for sym in crypto_symbols]
+    crypto_signals = [s for s in crypto_signals if s is not None]
+    all_signals.extend(crypto_signals)
+
+    # Telegram-Nachricht senden
+    message = format_telegram_message(us_signals, dax_signals, crypto_signals)
     send_telegram_alert(message)
-    return all_signals  # am Ende der Funktion
+
+    # Rückgabe für Streamlit-Chart
+    return all_signals
