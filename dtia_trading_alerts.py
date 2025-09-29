@@ -1,8 +1,8 @@
 
-import requests
+import datetime
 import yfinance as yf
-from bs4 import BeautifulSoup
-from datetime import datetime
+import pandas as pd
+import numpy as np
 
 BOT_TOKEN = "7521010029:AAF87jAzPWf0Kjz9hdymPKnVbRamCVGmhZQ"
 CHAT_ID = "6501591390"
@@ -39,28 +39,58 @@ def get_top_gainers_from_yahoo(url, suffix_filter=None):
 def generate_trade_signal(symbol):
     try:
         print(f"📊 Analysiere: {symbol}")
-        df = yf.download(symbol, period="5d", interval="1h")
-        if df.empty:
-            print(f"⚠️ Keine Daten für {symbol}")
+        
+        # Zeitraum: Gestern + Heute
+        now = datetime.datetime.utcnow()
+        start_date = (now - datetime.timedelta(days=2)).replace(hour=0, minute=0, second=0, microsecond=0)
+        end_date = now
+
+        df = yf.download(symbol, start=start_date.strftime('%Y-%m-%d'), end=end_date.strftime('%Y-%m-%d'), interval="30m")
+
+        if df.empty or len(df) < 5:
+            print(f"⚠️ Nicht genug Daten für {symbol}")
             return None
 
-        last_close = df['Close'].iloc[-1]
-        last_open = df['Open'].iloc[-1]
-        high = df['High'].max()
-        low = df['Low'].min()
-        atr = (high - low) / 10
+        # Strukturindikatoren auf Vortag
+        df_yesterday = df[df.index.date == (now - datetime.timedelta(days=1)).date()]
+        if df_yesterday.empty:
+            print(f"📉 Keine Daten vom Vortag für {symbol}")
+            return None
 
-        # Richtung basierend auf Wochenverlauf
-        trend = df['Close'].iloc[-1] - df['Close'].iloc[0]
-        direction = "Long" if trend > 0 else "Short"
-        entry = round(last_close, 2)
-        stop = round(entry - atr if direction == "Long" else entry + atr, 2)
-        target = round(entry + 2 * atr if direction == "Long" else entry - 2 * atr, 2)
+        avg_volume_yesterday = df_yesterday["Volume"].mean()
+        atr_yesterday = (df_yesterday["High"] - df_yesterday["Low"]).rolling(window=3).mean().iloc[-1]
 
-        # Signalbewertung
-        signal_strength = "🔥🔥🔥" if abs(trend / last_close) > 0.03 else "⚠️"
+        # Entry-Indikatoren auf heutigen Tag
+        df_today = df[df.index.date == now.date()]
+        if df_today.empty or len(df_today) < 2:
+            print(f"📉 Keine aktuellen Daten für {symbol}")
+            return None
 
-        print(f"✅ Signal erzeugt für {symbol}: {direction}, Stärke {signal_strength}, Entry {entry}")
+        delta = df_today["Close"].diff()
+        gain = delta.clip(lower=0).rolling(window=6).mean()
+        loss = -delta.clip(upper=0).rolling(window=6).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs))
+        last_rsi = rsi.iloc[-1]
+
+        # Entscheidung basierend auf RSI
+        if last_rsi > 70:
+            direction = "Short"
+        elif last_rsi < 30:
+            direction = "Long"
+        else:
+            print(f"⚖️ RSI neutral ({last_rsi:.1f}) für {symbol}")
+            return None
+
+        # Entry/Exit-Berechnung
+        entry = round(df_today["Close"].iloc[-1], 2)
+        stop = round(entry - atr_yesterday if direction == "Long" else entry + atr_yesterday, 2)
+        target = round(entry + 2 * atr_yesterday if direction == "Long" else entry - 2 * atr_yesterday, 2)
+
+        signal_strength = "🔥🔥🔥" if abs(df_today["Close"].pct_change().sum()) > 0.02 else "⚠️"
+
+        print(f"✅ Signal: {symbol} ({direction}) RSI {last_rsi:.1f} ATR {atr_yesterday:.2f}")
+
         return {
             "symbol": symbol,
             "direction": direction,
@@ -71,7 +101,7 @@ def generate_trade_signal(symbol):
         }
 
     except Exception as e:
-        print(f"❌ Fehler bei Analyse von {symbol}: {e}")
+        print(f"❌ Fehler bei {symbol}: {e}")
         return None
 
 
