@@ -29,7 +29,8 @@ def get_top_gainers_from_yahoo(url, suffix_filter=None):
                 if suffix_filter is None or symbol.endswith(suffix_filter):
                     symbols.append(symbol)
 
-        return symbols[:3] if symbols else []
+        print(f"✅ Gefundene Symbole ({url}): {symbols}")
+        return symbols[:5] if symbols else []
     except Exception as e:
         print(f"❌ Fehler beim Scraping ({url}): {e}")
         return []
@@ -44,22 +45,31 @@ def generate_trade_signal(symbol):
             return None
 
         last_close = df['Close'].iloc[-1]
+        last_open = df['Open'].iloc[-1]
         high = df['High'].max()
         low = df['Low'].min()
         atr = (high - low) / 10
-        direction = "Long" if df['Close'].iloc[-1] > df['Open'].iloc[-1] else "Short"
+
+        # Richtung basierend auf Wochenverlauf
+        trend = df['Close'].iloc[-1] - df['Close'].iloc[0]
+        direction = "Long" if trend > 0 else "Short"
         entry = round(last_close, 2)
         stop = round(entry - atr if direction == "Long" else entry + atr, 2)
         target = round(entry + 2 * atr if direction == "Long" else entry - 2 * atr, 2)
 
+        # Signalbewertung
+        signal_strength = "🔥🔥🔥" if abs(trend / last_close) > 0.03 else "⚠️"
+
+        print(f"✅ Signal erzeugt für {symbol}: {direction}, Stärke {signal_strength}, Entry {entry}")
         return {
             "symbol": symbol,
             "direction": direction,
             "entry": entry,
             "stop": stop,
             "target": target,
-            "signal_strength": "🔥🔥🔥"
+            "signal_strength": signal_strength
         }
+
     except Exception as e:
         print(f"❌ Fehler bei Analyse von {symbol}: {e}")
         return None
