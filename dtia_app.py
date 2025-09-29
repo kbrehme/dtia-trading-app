@@ -1,16 +1,26 @@
 import streamlit as st
+import time
 from dtia_trading_alerts import run_full_strategy
 
-st.set_page_config(page_title="Tradingkid", layout="centered")
-st.title("📈 Tradingkid")
+st.set_page_config(page_title="DTIA Trading Alerts", layout="centered")
+st.title("📈 DTIA Trading Assistant")
 
-# Query-Parameter auslesen über neues API (ab Streamlit 1.34)
-auto_run = st.query_params.get("run", ["false"])[0].lower() == "true"
+# Query-Params prüfen (funktioniert nur nach vollständigem App-Load)
+query_params = st.query_params
+auto_run = query_params.get("run", ["false"])[0].lower() == "true"
 
-if auto_run:
-    st.info("🚀 Automatisierter Run gestartet...")
-    run_full_strategy()
-    st.success("✅ Strategie wurde automatisch ausgeführt und per Telegram versendet.")
+# Session-Trigger setzen, um doppelten Run zu vermeiden
+if 'already_ran' not in st.session_state:
+    st.session_state['already_ran'] = False
+
+# Automatischer Trigger (nur einmal)
+if auto_run and not st.session_state['already_ran']:
+    st.info("🚀 Automatischer Run wird vorbereitet...")
+    with st.spinner("Strategie wird ausgeführt..."):
+        time.sleep(2)  # Warten bis Session vollständig geladen
+        run_full_strategy()
+    st.success("✅ Strategie wurde automatisch ausgeführt und per Telegram gesendet.")
+    st.session_state['already_ran'] = True
 else:
     st.write("Willkommen! Du kannst die tägliche Strategie manuell starten:")
 
