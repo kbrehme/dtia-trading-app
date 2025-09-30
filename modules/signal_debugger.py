@@ -25,8 +25,13 @@ def debug_trade_signal(symbol):
         debug_log["reasons"].append("❌ Nicht genügend Daten oder Spalten fehlen")
         return debug_log
 
+    # Fix für returns
     try:
-        df["returns"] = df["Close"].pct_change()
+        close_prices = df["Close"]
+        if isinstance(close_prices, pd.DataFrame):
+            close_prices = close_prices.squeeze()
+
+        df["returns"] = close_prices.astype(float).pct_change()
     except Exception as e:
         debug_log["valid"] = False
         debug_log["reasons"].append(f"⚠️ Fehler bei returns: {e}")
