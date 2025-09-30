@@ -22,6 +22,7 @@ def generate_trade_signal(symbol):
     }
 
     if df.empty or len(df) < 5:
+        log['reasons'].append(f"❌ Keine Kursdaten – erhaltene Zeilen: {len(df)}")
         log["valid"] = False
         log["reasons"].append("❌ Nicht genügend Daten")
         return None, log
