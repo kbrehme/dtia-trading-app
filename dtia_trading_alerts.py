@@ -1,4 +1,3 @@
-
 from modules.yahoo_scraper import get_yahoo_top_gainers
 from modules.signal_analysis import generate_trade_signal
 from modules.telegram_utils import send_telegram_alert
@@ -29,3 +28,14 @@ def run_yahoo_gainers_analysis():
             )
 
     send_telegram_alert(message)
+
+
+# Am Ende der Datei dtia_trading_alerts.py einfügen
+
+debug_logs_storage = []
+
+def store_debug_log(entry):
+    debug_logs_storage.append(entry)
+
+def get_debug_logs():
+    return debug_logs_storage
