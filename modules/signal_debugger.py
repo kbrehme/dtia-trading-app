@@ -29,32 +29,45 @@ def debug_trade_signal(symbol):
     atr = (df["High"] - df["Low"]).rolling(window=3).mean().iloc[-1]
     avg_volume = df["Volume"].mean()
 
+    # Werte validieren
+    try:
+        avg_volume_val = float(avg_volume)
+    except:
+        avg_volume_val = None
+
+    try:
+        atr_val = float(atr)
+    except:
+        atr_val = None
+
     delta = df["Close"].diff()
     gain = delta.clip(lower=0).rolling(window=6).mean()
     loss = -delta.clip(upper=0).rolling(window=6).mean()
     rs = gain / loss
     rsi = 100 - (100 / (1 + rs))
-    last_rsi = rsi.iloc[-1]
+    try:
+        last_rsi = float(rsi.iloc[-1])
+    except:
+        last_rsi = None
 
-    # Log Details
-    debug_log["rsi"] = round(last_rsi, 2)
-    debug_log["atr"] = round(atr, 2)
-    debug_log["volume"] = int(avg_volume) if pd.notna(avg_volume) else None
+    debug_log["rsi"] = round(last_rsi, 2) if last_rsi is not None else None
+    debug_log["atr"] = round(atr_val, 2) if atr_val is not None else None
+    debug_log["volume"] = int(avg_volume_val) if avg_volume_val is not None else None
 
     # Kriterien prüfen
-    if pd.isna(avg_volume) or float(avg_volume) < 50000:
+    if avg_volume_val is None or avg_volume_val < 50000:
         debug_log["valid"] = False
         debug_log["reasons"].append("📉 Volumen zu niedrig oder ungültig (< 50k)")
 
-    if pd.isna(atr) or atr < 0.5:
+    if atr_val is None or atr_val < 0.5:
         debug_log["valid"] = False
         debug_log["reasons"].append("📏 ATR zu gering (< 0.5)")
 
-    if atr > 10:
+    if atr_val is not None and atr_val > 10:
         debug_log["valid"] = False
         debug_log["reasons"].append("📏 ATR zu hoch (> 10)")
 
-    if pd.isna(last_rsi):
+    if last_rsi is None:
         debug_log["valid"] = False
         debug_log["reasons"].append("🔸 RSI nicht berechenbar")
     elif last_rsi > 70:
