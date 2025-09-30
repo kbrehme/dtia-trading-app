@@ -33,7 +33,7 @@ def generate_trade_signal(symbol):
 
         debug_log["data_rows"] = len(df)
 
-        # 2️⃣ RSI
+        # 2️⃣ RSI berechnen
         delta = df["Close"].diff()
         gain = delta.clip(lower=0)
         loss = -delta.clip(upper=0)
@@ -44,7 +44,7 @@ def generate_trade_signal(symbol):
         latest_rsi = safe_float(rsi_series.iloc[-1]) if not rsi_series.empty else None
         debug_log["rsi"] = round(latest_rsi, 2) if latest_rsi is not None else None
 
-        # 3️⃣ ATR
+        # 3️⃣ ATR berechnen
         df["H-L"] = df["High"] - df["Low"]
         df["H-PC"] = abs(df["High"] - df["Close"].shift(1))
         df["L-PC"] = abs(df["Low"] - df["Close"].shift(1))
@@ -54,10 +54,7 @@ def generate_trade_signal(symbol):
         debug_log["atr"] = round(atr, 2) if atr is not None else None
 
         # 4️⃣ Volumen
-        if "Volume" in df.columns and not df["Volume"].isna().all():
-            volume = safe_float(df["Volume"].iloc[-1])
-        else:
-            volume = None
+        volume = safe_float(df["Volume"].iloc[-1]) if "Volume" in df.columns and not df["Volume"].isna().all() else None
         debug_log["volume"] = int(volume) if volume is not None else None
 
         # 5️⃣ Gap
@@ -72,13 +69,22 @@ def generate_trade_signal(symbol):
             gap = None
         debug_log["gap"] = round(gap, 4) if gap is not None else None
 
-        # 6️⃣ Trend
+        # 6️⃣ Trend (mit Fix!)
         df["EMA5"] = df["Close"].ewm(span=5, adjust=False).mean()
         df["EMA20"] = df["Close"].ewm(span=20, adjust=False).mean()
         ema5 = safe_float(df["EMA5"].iloc[-1])
         ema20 = safe_float(df["EMA20"].iloc[-1])
-        trend = "Bullish" if ema5 and ema20 and ema5 > ema20 else "Bearish"
+
+        if isinstance(ema5, (float, int)) and isinstance(ema20, (float, int)):
+            trend = "Bullish" if ema5 > ema20 else "Bearish"
+        else:
+            trend = None
+
         debug_log["trend"] = trend
+
+        if trend is None:
+            debug_log["reasons"].append("❌ Trend nicht berechenbar")
+            return None, debug_log
 
         # 7️⃣ Filterkriterien
         is_valid_rsi = latest_rsi is not None and 30 < latest_rsi < 70
