@@ -3,6 +3,17 @@ import yfinance as yf
 from datetime import datetime, timedelta
 from modules.advanced_filters import passes_advanced_filters
 
+
+
+# Bewertungsskala:
+# Jede positive Eigenschaft bringt +1 Punkt (max ca. 6)
+# Interpretation in der UI:
+#   5–6 Punkte = 🟢 Sehr stark
+#   3–4 Punkte = 🟡 Solide
+#   0–2 Punkte = 🔴 Schwach
+
+# Scoring-System integriert
+
 def generate_trade_signal(symbol):
     now = datetime.utcnow()
     start_date = (now - timedelta(days=2)).replace(hour=0, minute=0)
@@ -25,13 +36,15 @@ def generate_trade_signal(symbol):
         log['reasons'].append(f"❌ Keine Kursdaten – erhaltene Zeilen: {len(df)}")
         log["valid"] = False
         log["reasons"].append("❌ Nicht genügend Daten")
-        return None, log
+        log['score'] = log.get('score', 0)
+    return None, log
 
     passes_filters, filter_reasons = passes_advanced_filters(df)
     if not passes_filters:
         log["valid"] = False
         log["reasons"].extend(filter_reasons)
-        return None, log
+        log['score'] = log.get('score', 0)
+    return None, log
 
     # RSI
     delta = df["Close"].diff()
@@ -61,7 +74,8 @@ def generate_trade_signal(symbol):
     if last_rsi is None:
         log["valid"] = False
         log["reasons"].append("🔸 RSI nicht berechenbar")
-        return None, log
+        log['score'] = log.get('score', 0)
+    return None, log
 
     if last_rsi > 70:
         direction = "📉 Short"
@@ -70,7 +84,8 @@ def generate_trade_signal(symbol):
     else:
         log["valid"] = False
         log["reasons"].append("🔸 RSI neutral")
-        return None, log
+        log['score'] = log.get('score', 0)
+    return None, log
 
     signal = {
         "symbol": symbol,
