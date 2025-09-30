@@ -20,7 +20,6 @@ def debug_trade_signal(symbol):
         "volume": None
     }
 
-    # Grundprüfungen
     if df.empty or len(df) < 5 or "Close" not in df.columns:
         debug_log["valid"] = False
         debug_log["reasons"].append("❌ Nicht genügend Daten oder Spalten fehlen")
@@ -34,12 +33,14 @@ def debug_trade_signal(symbol):
         return debug_log
 
     try:
-        atr = (df["High"] - df["Low"]).rolling(window=3).mean().iloc[-1]
-        avg_volume = df["Volume"].mean()
-    except Exception as e:
-        debug_log["valid"] = False
-        debug_log["reasons"].append(f"⚠️ Fehler bei ATR oder Volumen: {e}")
-        return debug_log
+        atr_val = float((df["High"] - df["Low"]).rolling(window=3).mean().iloc[-1])
+    except:
+        atr_val = None
+
+    try:
+        avg_volume_val = float(df["Volume"].mean())
+    except:
+        avg_volume_val = None
 
     delta = df["Close"].diff()
     gain = delta.clip(lower=0).rolling(window=6).mean()
@@ -48,34 +49,32 @@ def debug_trade_signal(symbol):
     rsi = 100 - (100 / (1 + rs))
 
     try:
-        last_rsi = float(rsi.iloc[-1])
+        last_rsi_val = float(rsi.iloc[-1])
     except:
-        last_rsi = None
+        last_rsi_val = None
 
-    # Ergebnisse speichern
-    debug_log["rsi"] = round(last_rsi, 2) if last_rsi is not None else None
-    debug_log["atr"] = round(atr, 2) if pd.notna(atr) else None
-    debug_log["volume"] = int(avg_volume) if pd.notna(avg_volume) else None
+    debug_log["rsi"] = round(last_rsi_val, 2) if last_rsi_val is not None else None
+    debug_log["atr"] = round(atr_val, 2) if atr_val is not None else None
+    debug_log["volume"] = int(avg_volume_val) if avg_volume_val is not None else None
 
-    # Prüfen
-    if pd.isna(avg_volume) or float(avg_volume) < 50000:
+    if avg_volume_val is None or avg_volume_val < 50000:
         debug_log["valid"] = False
         debug_log["reasons"].append("📉 Volumen zu niedrig oder ungültig (< 50k)")
 
-    if pd.isna(atr) or atr < 0.5:
+    if atr_val is None or atr_val < 0.5:
         debug_log["valid"] = False
         debug_log["reasons"].append("📏 ATR zu gering (< 0.5)")
 
-    if atr > 10:
+    if atr_val is not None and atr_val > 10:
         debug_log["valid"] = False
         debug_log["reasons"].append("📏 ATR zu hoch (> 10)")
 
-    if last_rsi is None:
+    if last_rsi_val is None:
         debug_log["valid"] = False
         debug_log["reasons"].append("🔸 RSI nicht berechenbar")
-    elif last_rsi > 70:
+    elif last_rsi_val > 70:
         debug_log["signal"] = "Short"
-    elif last_rsi < 30:
+    elif last_rsi_val < 30:
         debug_log["signal"] = "Long"
     else:
         debug_log["valid"] = False
