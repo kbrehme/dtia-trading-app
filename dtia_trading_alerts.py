@@ -10,10 +10,10 @@ def run_yahoo_gainers_analysis():
     signals = []
 
     for ticker in tickers:
-        signal = generate_trade_signal(ticker)
-        if signal:
+        signal, log = generate_trade_signal(ticker)
+        store_debug_log(log)
+        if signal is not None:
             signals.append(signal)
-        time.sleep(1)
 
     today = datetime.now().strftime("%d.%m.%Y")
     message = f"🚨 DTIA Yahoo Gainers Analyse für {today}\n\n"
