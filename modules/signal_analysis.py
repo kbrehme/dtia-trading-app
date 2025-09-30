@@ -73,10 +73,10 @@ def generate_trade_signal(symbol):
 
         # 7. ✅ Signalbedingungen
         conditions = [
-            pd.notna(latest_rsi) and 30 < latest_rsi < 70,
-            pd.notna(atr) and atr > 0,
-            pd.notna(volume) and volume > 100000,
-            gap is not None and abs(gap) < 0.05
+            (latest_rsi is not None) and (30 < latest_rsi < 70),
+            (atr is not None) and (atr > 0),
+            (volume is not None) and (volume > 100000),
+            (gap is not None) and (abs(gap) < 0.05)
         ]
 
         if all(conditions):
