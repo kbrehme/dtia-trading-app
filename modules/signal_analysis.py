@@ -3,6 +3,12 @@ import pandas as pd
 import numpy as np
 
 def generate_trade_signal(symbol):
+    def safe_float(val):
+        try:
+            return float(val)
+        except:
+            return None
+
     debug_log = {
         "symbol": symbol,
         "valid": False,
@@ -18,7 +24,7 @@ def generate_trade_signal(symbol):
     }
 
     try:
-        # 1️⃣ Daten abrufen – genug Historie für Indikatoren
+        # 1️⃣ Kursdaten abrufen
         df = yf.download(symbol, period="30d", interval="1d", progress=False)
 
         if df is None or df.empty or len(df) < 15:
@@ -27,70 +33,63 @@ def generate_trade_signal(symbol):
 
         debug_log["data_rows"] = len(df)
 
-        # 2️⃣ RSI berechnen
+        # 2️⃣ RSI
         delta = df["Close"].diff()
         gain = delta.clip(lower=0)
         loss = -delta.clip(upper=0)
-
         avg_gain = gain.rolling(window=14).mean()
         avg_loss = loss.rolling(window=14).mean()
         rs = avg_gain / avg_loss
         rsi_series = 100 - (100 / (1 + rs))
+        latest_rsi = safe_float(rsi_series.iloc[-1]) if not rsi_series.empty else None
+        debug_log["rsi"] = round(latest_rsi, 2) if latest_rsi is not None else None
 
-        latest_rsi = rsi_series.iloc[-1] if not rsi_series.empty else None
-        latest_rsi = float(latest_rsi) if pd.notna(latest_rsi) else None
-        debug_log["rsi"] = round(latest_rsi, 2) if latest_rsi else None
-
-        # 3️⃣ ATR berechnen
+        # 3️⃣ ATR
         df["H-L"] = df["High"] - df["Low"]
         df["H-PC"] = abs(df["High"] - df["Close"].shift(1))
         df["L-PC"] = abs(df["Low"] - df["Close"].shift(1))
         df["TR"] = df[["H-L", "H-PC", "L-PC"]].max(axis=1)
-
         atr_series = df["TR"].rolling(window=14).mean()
-        atr = atr_series.iloc[-1] if not atr_series.empty else None
-        atr = float(atr) if pd.notna(atr) else None
-        debug_log["atr"] = round(atr, 2) if atr else None
+        atr = safe_float(atr_series.iloc[-1]) if not atr_series.empty else None
+        debug_log["atr"] = round(atr, 2) if atr is not None else None
 
         # 4️⃣ Volumen
         if "Volume" in df.columns and not df["Volume"].isna().all():
-            volume = df["Volume"].iloc[-1]
-            volume = int(volume) if pd.notna(volume) else None
+            volume = safe_float(df["Volume"].iloc[-1])
         else:
             volume = None
-        debug_log["volume"] = volume
+        debug_log["volume"] = int(volume) if volume is not None else None
 
-        # 5️⃣ Gap berechnen
+        # 5️⃣ Gap
         if len(df) >= 2:
-            prev_close = df["Close"].iloc[-2]
-            today_open = df["Open"].iloc[-1]
-            if pd.notna(prev_close) and pd.notna(today_open) and prev_close != 0:
-                gap = (today_open - prev_close) / prev_close
-                gap = float(gap)
+            prev_close = safe_float(df["Close"].iloc[-2])
+            today_open = safe_float(df["Open"].iloc[-1])
+            if prev_close and today_open and prev_close != 0:
+                gap = safe_float((today_open - prev_close) / prev_close)
             else:
                 gap = None
         else:
             gap = None
-        debug_log["gap"] = round(gap, 4) if isinstance(gap, float) else None
+        debug_log["gap"] = round(gap, 4) if gap is not None else None
 
-        # 6️⃣ Trend bestimmen
+        # 6️⃣ Trend
         df["EMA5"] = df["Close"].ewm(span=5, adjust=False).mean()
         df["EMA20"] = df["Close"].ewm(span=20, adjust=False).mean()
-        ema5 = df["EMA5"].iloc[-1]
-        ema20 = df["EMA20"].iloc[-1]
-        trend = "Bullish" if ema5 > ema20 else "Bearish"
+        ema5 = safe_float(df["EMA5"].iloc[-1])
+        ema20 = safe_float(df["EMA20"].iloc[-1])
+        trend = "Bullish" if ema5 and ema20 and ema5 > ema20 else "Bearish"
         debug_log["trend"] = trend
 
-        # 7️⃣ Filterbedingungen robust prüfen
-        is_valid_rsi = isinstance(latest_rsi, (float, int)) and 30 < latest_rsi < 70
-        is_valid_atr = isinstance(atr, (float, int)) and atr > 0
-        is_valid_volume = isinstance(volume, (float, int)) and volume > 100_000
-        is_valid_gap = isinstance(gap, (float, int)) and abs(gap) < 0.05
+        # 7️⃣ Filterkriterien
+        is_valid_rsi = latest_rsi is not None and 30 < latest_rsi < 70
+        is_valid_atr = atr is not None and atr > 0
+        is_valid_volume = volume is not None and volume > 100_000
+        is_valid_gap = gap is not None and abs(gap) < 0.05
 
         if all([is_valid_rsi, is_valid_atr, is_valid_volume, is_valid_gap]):
             debug_log["valid"] = True
             direction = "Long" if trend == "Bullish" else "Short"
-            entry = float(df["Close"].iloc[-1])
+            entry = safe_float(df["Close"].iloc[-1])
             stop = entry - atr if direction == "Long" else entry + atr
             target = entry + 2 * atr if direction == "Long" else entry - 2 * atr
             signal_strength = "🟢 Stark"
