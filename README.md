@@ -9,15 +9,19 @@ Dieses Projekt ist ein modular aufgebauter **Daytrading-Assistent**, der automat
 ```
 dtia-trading-app/
 │
-├── dtia_app.py                   → Streamlit Web-App (UI)
-├── dtia_trading_alerts.py       → Strategie-Runner für Yahoo-Gainers
-├── requirements.txt
-├── README.md
+├── data/
+│   ├── us_tickers.txt
+│   ├── dax_tickers.txt
+│   └── crypto_tickers.txt
 │
-└── modules/
-    ├── yahoo_scraper.py         → Holt Top-Gainer von Yahoo Finance (Webscraper)
-    ├── signal_analysis.py       → Berechnet Long/Short-Signale (RSI, ATR)
-    └── telegram_utils.py        → Versendet Nachrichten via Telegram Bot
+├── modules/
+│   ├── signal_analysis.py
+│   ├── ticker_loader.py
+│   └── ...
+│
+├── dtia_trading_alerts.py
+├── dtia_app.py
+└── ...
 ```
 
 ---
