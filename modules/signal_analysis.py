@@ -15,90 +15,103 @@ from modules.advanced_filters import passes_advanced_filters
 # Scoring-System integriert
 
 def generate_trade_signal(symbol):
-    now = datetime.utcnow()
-    start_date = (now - timedelta(days=2)).replace(hour=0, minute=0)
-    end_date = now
-
-    df = yf.download(symbol, start=start_date.strftime('%Y-%m-%d'),
-                     end=end_date.strftime('%Y-%m-%d'), interval="30m", progress=False)
-
-    log = {
+    debug_log = {
         "symbol": symbol,
-        "valid": True,
+        "valid": False,
         "reasons": [],
         "rsi": None,
         "atr": None,
         "volume": None,
-        "direction": None
+        "gap": None,
+        "trend": None,
+        "data_rows": 0
     }
 
-    if df.empty or len(df) < 5:
-        log['reasons'].append(f"❌ Keine Kursdaten – erhaltene Zeilen: {len(df)}")
-        log["valid"] = False
-        log["reasons"].append("❌ Nicht genügend Daten")
-        log['score'] = log.get('score', 0)
-    return None, log
+    try:
+        # 1. 📥 Daten abrufen (letzte 10 Tage für solide Indikatoren)
+        df = yf.download(symbol, period="10d", interval="1d", progress=False)
 
-    passes_filters, filter_reasons = passes_advanced_filters(df)
-    if not passes_filters:
-        log["valid"] = False
-        log["reasons"].extend(filter_reasons)
-        log['score'] = log.get('score', 0)
-    return None, log
+        if df is None or df.empty or len(df) < 5:
+            debug_log["reasons"].append("❌ Keine oder zu wenig Kursdaten")
+            return None, debug_log
 
-    # RSI
-    delta = df["Close"].diff()
-    gain = delta.clip(lower=0).rolling(window=6).mean()
-    loss = -delta.clip(upper=0).rolling(window=6).mean()
-    rs = gain / loss
-    rsi = 100 - (100 / (1 + rs))
-    last_rsi = rsi.iloc[-1] if not rsi.empty else None
+        debug_log["data_rows"] = len(df)
 
-    # ATR + Volume
-    atr = (df["High"] - df["Low"]).rolling(window=3).mean().iloc[-1]
-    avg_volume = df["Volume"].mean()
-    price = df["Close"].iloc[-1]
+        # 2. 📉 RSI (14)
+        delta = df["Close"].diff()
+        gain = delta.where(delta > 0, 0)
+        loss = -delta.where(delta < 0, 0)
 
-    log["rsi"] = round(last_rsi, 2) if last_rsi is not None else None
-    log["atr"] = round(atr, 2)
-    log["volume"] = int(avg_volume)
+        avg_gain = gain.rolling(window=14).mean()
+        avg_loss = loss.rolling(window=14).mean()
 
-    if avg_volume < 50000:
-        log["valid"] = False
-        log["reasons"].append("📉 Volumen < 50k")
+        rs = avg_gain / avg_loss
+        rsi = 100 - (100 / (1 + rs))
 
-    if atr < 0.5 or atr > 10:
-        log["valid"] = False
-        log["reasons"].append(f"📏 ATR ungültig ({atr:.2f})")
+        latest_rsi = rsi.iloc[-1] if not rsi.empty else None
+        debug_log["rsi"] = round(latest_rsi, 2) if pd.notna(latest_rsi) else None
 
-    if last_rsi is None:
-        log["valid"] = False
-        log["reasons"].append("🔸 RSI nicht berechenbar")
-        log['score'] = log.get('score', 0)
-    return None, log
+        # 3. 📊 ATR (14)
+        df["H-L"] = df["High"] - df["Low"]
+        df["H-PC"] = abs(df["High"] - df["Close"].shift(1))
+        df["L-PC"] = abs(df["Low"] - df["Close"].shift(1))
+        df["TR"] = df[["H-L", "H-PC", "L-PC"]].max(axis=1)
+        atr = df["TR"].rolling(window=14).mean().iloc[-1]
+        debug_log["atr"] = round(atr, 2) if pd.notna(atr) else None
 
-    if last_rsi > 70:
-        direction = "📉 Short"
-    elif last_rsi < 30:
-        direction = "📈 Long"
-    else:
-        log["valid"] = False
-        log["reasons"].append("🔸 RSI neutral")
-        log['score'] = log.get('score', 0)
-    return None, log
+        # 4. 📦 Volumen
+        volume = df["Volume"].iloc[-1] if "Volume" in df and not df["Volume"].isna().all() else None
+        debug_log["volume"] = int(volume) if pd.notna(volume) else None
 
-    signal = {
-        "symbol": symbol,
-        "rsi": round(last_rsi, 2),
-        "atr": round(atr, 2),
-        "volume": int(avg_volume),
-        "price": round(price, 2),
-        "direction": direction,
-        "entry": round(price, 2),
-        "target": round(price * 1.03 if direction == "📈 Long" else price * 0.97, 2),
-        "stop": round(price * 0.98 if direction == "📈 Long" else price * 1.02, 2),
-        "signal_strength": "🔥"
-    }
+        # 5. 🧠 Gap (letzter Tag vs. Vortag Close)
+        if len(df) >= 2:
+            prev_close = df["Close"].iloc[-2]
+            open_price = df["Open"].iloc[-1]
+            gap = (open_price - prev_close) / prev_close
+            debug_log["gap"] = round(gap, 4)
+        else:
+            gap = None
+            debug_log["reasons"].append("❌ Kein vorheriger Close für Gap")
 
-    log["direction"] = direction
-    return signal, log
+        # 6. 📈 Trend (EMA 5 vs EMA 20)
+        df["EMA5"] = df["Close"].ewm(span=5, adjust=False).mean()
+        df["EMA20"] = df["Close"].ewm(span=20, adjust=False).mean()
+
+        ema5 = df["EMA5"].iloc[-1]
+        ema20 = df["EMA20"].iloc[-1]
+        trend = "Bullish" if ema5 > ema20 else "Bearish"
+        debug_log["trend"] = trend
+
+        # 7. ✅ Signalbedingungen
+        conditions = [
+            pd.notna(latest_rsi) and 30 < latest_rsi < 70,
+            pd.notna(atr) and atr > 0,
+            pd.notna(volume) and volume > 100000,
+            gap is not None and abs(gap) < 0.05
+        ]
+
+        if all(conditions):
+            debug_log["valid"] = True
+            direction = "Long" if trend == "Bullish" else "Short"
+            entry = df["Close"].iloc[-1]
+            stop = entry - atr if direction == "Long" else entry + atr
+            target = entry + 2 * atr if direction == "Long" else entry - 2 * atr
+
+            signal = {
+                "symbol": symbol,
+                "entry": round(entry, 2),
+                "stop": round(stop, 2),
+                "target": round(target, 2),
+                "direction": direction,
+                "score": 100,
+                "signal_strength": "🟢 Stark"
+            }
+            return signal, debug_log
+
+        else:
+            debug_log["reasons"].append("❌ Bedingungen nicht erfüllt")
+            return None, debug_log
+
+    except Exception as e:
+        debug_log["reasons"].append(f"❌ Fehler: {str(e)}")
+        return None, debug_log
