@@ -1,44 +1,33 @@
 
 import streamlit as st
-from dtia_trading_alerts import run_yahoo_gainers_analysis
-from modules.yahoo_scraper import get_yahoo_top_gainers
-from modules.signal_debugger import debug_multiple_tickers
+from dtia_trading_alerts import run_yahoo_gainers_analysis, get_debug_logs
 
-st.set_page_config(page_title="DTIA Yahoo Gainers", layout="centered")
-st.title("📈 DTIA Yahoo Gainers Analyzer")
+st.set_page_config(page_title="DTIA Trading Alerts", layout="centered")
+st.title("📈 DTIA Trading Assistant")
 
-if "already_ran" not in st.session_state:
-    st.session_state["already_ran"] = False
-
-query_params = st.experimental_get_query_params()
-auto_run = query_params.get("run", ["false"])[0].lower() == "true"
-
-if auto_run and not st.session_state["already_ran"]:
-    st.info("🚀 Automatischer Run über ?run=true")
+# Manuelle Strategieausführung
+if st.button("🚀 Signale jetzt analysieren"):
     run_yahoo_gainers_analysis()
-    st.success("✅ Analyse abgeschlossen und an Telegram gesendet.")
-    st.session_state["already_ran"] = True
-else:
-    st.write("Willkommen zur täglichen Yahoo-Gainers-Analyse!")
+    st.success("✅ Analyse abgeschlossen und Signale gesendet.")
 
-    if st.button("🚀 Jetzt Analyse starten"):
-        run_yahoo_gainers_analysis()
-        st.success("✅ Analyse abgeschlossen und an Telegram gesendet.")
+# Debugdaten anzeigen (jetzt: genauere Informationen)
+debug_data = get_debug_logs()
 
-# Neue Debug-Kachel
-with st.expander("🔍 Debug-Analyse der Top Gainers anzeigen"):
-    st.info("Diese Analyse zeigt, warum bestimmte Aktien als Signal abgelehnt oder akzeptiert wurden.")
-    tickers = get_yahoo_top_gainers(count=10)
-    debug_data = debug_multiple_tickers(tickers)
+if debug_data:
+    st.markdown("---")
+    st.subheader("🧠 Genauere Informationen zu analysierten Tickers")
 
-    for stock in debug_data:
-        st.subheader(f"📊 {stock['symbol']}")
-        st.write(f"**RSI:** {stock['rsi']} | **ATR:** {stock['atr']} | **Volumen:** {stock['volume']}")
-        if stock["valid"]:
-            st.success("✅ Gültiges Signal erkannt!")
-            st.write(f"Signalrichtung: **{stock.get('signal', 'Nicht erkannt')}**")
-        else:
-            st.error("❌ Kein Signal")
-            st.write("Gründe:")
-            for reason in stock["reasons"]:
+    for entry in debug_data:
+        symbol = entry.get("symbol", "N/A")
+        st.markdown(f"### 🔍 {symbol}")
+        st.markdown(f"""
+        - **Gültig:** {'✅ Ja' if entry.get("valid") else '❌ Nein'}
+        - **Signalrichtung:** {entry.get("direction", '–')}
+        - **RSI:** {entry.get("rsi", '–')}
+        - **ATR:** {entry.get("atr", '–')}
+        - **Volumen:** {entry.get("volume", '–')}
+        """)
+        if not entry.get("valid") and entry.get("reasons"):
+            st.markdown("**Ablehnungsgründe:**")
+            for reason in entry["reasons"]:
                 st.markdown(f"- {reason}")
