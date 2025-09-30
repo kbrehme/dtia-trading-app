@@ -1,6 +1,7 @@
 
 import yfinance as yf
 from datetime import datetime, timedelta
+import pandas as pd
 
 def debug_trade_signal(symbol):
     now = datetime.utcnow()
@@ -38,14 +39,14 @@ def debug_trade_signal(symbol):
     # Log Details
     debug_log["rsi"] = round(last_rsi, 2)
     debug_log["atr"] = round(atr, 2)
-    debug_log["volume"] = int(avg_volume)
+    debug_log["volume"] = int(avg_volume) if pd.notna(avg_volume) else None
 
     # Kriterien prüfen
-    if avg_volume < 50000:
+    if pd.isna(avg_volume) or float(avg_volume) < 50000:
         debug_log["valid"] = False
-        debug_log["reasons"].append("📉 Volumen zu niedrig (< 50k)")
+        debug_log["reasons"].append("📉 Volumen zu niedrig oder ungültig (< 50k)")
 
-    if atr < 0.5:
+    if pd.isna(atr) or atr < 0.5:
         debug_log["valid"] = False
         debug_log["reasons"].append("📏 ATR zu gering (< 0.5)")
 
@@ -53,7 +54,10 @@ def debug_trade_signal(symbol):
         debug_log["valid"] = False
         debug_log["reasons"].append("📏 ATR zu hoch (> 10)")
 
-    if last_rsi > 70:
+    if pd.isna(last_rsi):
+        debug_log["valid"] = False
+        debug_log["reasons"].append("🔸 RSI nicht berechenbar")
+    elif last_rsi > 70:
         debug_log["signal"] = "Short"
     elif last_rsi < 30:
         debug_log["signal"] = "Long"
