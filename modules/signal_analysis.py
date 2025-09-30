@@ -11,15 +11,28 @@ def generate_trade_signal(symbol):
     df = yf.download(symbol, start=start_date.strftime('%Y-%m-%d'),
                      end=end_date.strftime('%Y-%m-%d'), interval="30m", progress=False)
 
-    if df.empty or len(df) < 5:
-        return None
+    log = {
+        "symbol": symbol,
+        "valid": True,
+        "reasons": [],
+        "rsi": None,
+        "atr": None,
+        "volume": None,
+        "direction": None
+    }
 
-    # Erweiterte Daytrader-Filter prüfen
+    if df.empty or len(df) < 5:
+        log["valid"] = False
+        log["reasons"].append("❌ Nicht genügend Daten")
+        return None, log
+
     passes_filters, filter_reasons = passes_advanced_filters(df)
     if not passes_filters:
-        return None  # Optional: filter_reasons in Debug-Modul zurückgeben
+        log["valid"] = False
+        log["reasons"].extend(filter_reasons)
+        return None, log
 
-    # Technische Analyse: RSI
+    # RSI
     delta = df["Close"].diff()
     gain = delta.clip(lower=0).rolling(window=6).mean()
     loss = -delta.clip(upper=0).rolling(window=6).mean()
@@ -27,24 +40,36 @@ def generate_trade_signal(symbol):
     rsi = 100 - (100 / (1 + rs))
     last_rsi = rsi.iloc[-1] if not rsi.empty else None
 
-    if last_rsi is None:
-        return None
-
-    # Technische Analyse: ATR
+    # ATR + Volume
     atr = (df["High"] - df["Low"]).rolling(window=3).mean().iloc[-1]
     avg_volume = df["Volume"].mean()
     price = df["Close"].iloc[-1]
 
-    # Validierung technischer Kriterien
-    if avg_volume < 50000 or atr < 0.5 or atr > 10:
-        return None
+    log["rsi"] = round(last_rsi, 2) if last_rsi is not None else None
+    log["atr"] = round(atr, 2)
+    log["volume"] = int(avg_volume)
+
+    if avg_volume < 50000:
+        log["valid"] = False
+        log["reasons"].append("📉 Volumen < 50k")
+
+    if atr < 0.5 or atr > 10:
+        log["valid"] = False
+        log["reasons"].append(f"📏 ATR ungültig ({atr:.2f})")
+
+    if last_rsi is None:
+        log["valid"] = False
+        log["reasons"].append("🔸 RSI nicht berechenbar")
+        return None, log
 
     if last_rsi > 70:
         direction = "📉 Short"
     elif last_rsi < 30:
         direction = "📈 Long"
     else:
-        return None
+        log["valid"] = False
+        log["reasons"].append("🔸 RSI neutral")
+        return None, log
 
     signal = {
         "symbol": symbol,
@@ -59,4 +84,5 @@ def generate_trade_signal(symbol):
         "signal_strength": "🔥"
     }
 
-    return signal
+    log["direction"] = direction
+    return signal, log
