@@ -1,18 +1,7 @@
-
 import yfinance as yf
+import pandas as pd
+import numpy as np
 from datetime import datetime, timedelta
-from modules.advanced_filters import passes_advanced_filters
-
-
-
-# Bewertungsskala:
-# Jede positive Eigenschaft bringt +1 Punkt (max ca. 6)
-# Interpretation in der UI:
-#   5–6 Punkte = 🟢 Sehr stark
-#   3–4 Punkte = 🟡 Solide
-#   0–2 Punkte = 🔴 Schwach
-
-# Scoring-System integriert
 
 def generate_trade_signal(symbol):
     debug_log = {
