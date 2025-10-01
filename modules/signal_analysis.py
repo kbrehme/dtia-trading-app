@@ -20,11 +20,12 @@ def generate_trade_signal(symbol):
         "gap": None,
         "trend": None,
         "data_rows": 0,
-        "reasons": []
+        "reasons": [],
+        "types": {}
     }
 
     try:
-        # 1️⃣ Kursdaten abrufen
+        # 📥 1. Kursdaten laden
         df = yf.download(symbol, period="30d", interval="1d", progress=False)
 
         if df is None or df.empty or len(df) < 15:
@@ -33,7 +34,7 @@ def generate_trade_signal(symbol):
 
         debug_log["data_rows"] = len(df)
 
-        # 2️⃣ RSI berechnen
+        # 📊 2. RSI berechnen
         delta = df["Close"].diff()
         gain = delta.clip(lower=0)
         loss = -delta.clip(upper=0)
@@ -42,34 +43,31 @@ def generate_trade_signal(symbol):
         rs = avg_gain / avg_loss
         rsi_series = 100 - (100 / (1 + rs))
         latest_rsi = safe_float(rsi_series.iloc[-1]) if not rsi_series.empty else None
-        debug_log["rsi"] = round(latest_rsi, 2) if latest_rsi is not None else None
+        debug_log["rsi"] = round(latest_rsi, 2) if latest_rsi else None
 
-        # 3️⃣ ATR berechnen
+        # 📏 3. ATR berechnen
         df["H-L"] = df["High"] - df["Low"]
         df["H-PC"] = abs(df["High"] - df["Close"].shift(1))
         df["L-PC"] = abs(df["Low"] - df["Close"].shift(1))
         df["TR"] = df[["H-L", "H-PC", "L-PC"]].max(axis=1)
         atr_series = df["TR"].rolling(window=14).mean()
         atr = safe_float(atr_series.iloc[-1]) if not atr_series.empty else None
-        debug_log["atr"] = round(atr, 2) if atr is not None else None
+        debug_log["atr"] = round(atr, 2) if atr else None
 
-        # 4️⃣ Volumen
+        # 📦 4. Volumen
         volume = safe_float(df["Volume"].iloc[-1]) if "Volume" in df.columns and not df["Volume"].isna().all() else None
-        debug_log["volume"] = int(volume) if volume is not None else None
+        debug_log["volume"] = int(volume) if volume else None
 
-        # 5️⃣ Gap
+        # 🕳️ 5. Gap
+        gap = None
         if len(df) >= 2:
             prev_close = safe_float(df["Close"].iloc[-2])
             today_open = safe_float(df["Open"].iloc[-1])
-            if prev_close and today_open and prev_close != 0:
-                gap = safe_float((today_open - prev_close) / prev_close)
-            else:
-                gap = None
-        else:
-            gap = None
-        debug_log["gap"] = round(gap, 4) if gap is not None else None
+            if isinstance(prev_close, (float, int)) and isinstance(today_open, (float, int)) and prev_close != 0:
+                gap = (today_open - prev_close) / prev_close
+        debug_log["gap"] = round(gap, 4) if gap else None
 
-        # 6️⃣ Trend (mit Fix!)
+        # 📈 6. Trend
         df["EMA5"] = df["Close"].ewm(span=5, adjust=False).mean()
         df["EMA20"] = df["Close"].ewm(span=20, adjust=False).mean()
         ema5 = safe_float(df["EMA5"].iloc[-1])
@@ -79,19 +77,29 @@ def generate_trade_signal(symbol):
             trend = "Bullish" if ema5 > ema20 else "Bearish"
         else:
             trend = None
-
         debug_log["trend"] = trend
 
         if trend is None:
             debug_log["reasons"].append("❌ Trend nicht berechenbar")
             return None, debug_log
 
-        # 7️⃣ Filterkriterien
-        is_valid_rsi = latest_rsi is not None and 30 < latest_rsi < 70
-        is_valid_atr = atr is not None and atr > 0
-        is_valid_volume = volume is not None and volume > 100_000
-        is_valid_gap = gap is not None and abs(gap) < 0.05
+        # 🔍 7. Typprüfung speichern (für Debug-Anzeige)
+        debug_log["types"] = {
+            "rsi": str(type(latest_rsi)),
+            "atr": str(type(atr)),
+            "volume": str(type(volume)),
+            "gap": str(type(gap)),
+            "ema5": str(type(ema5)),
+            "ema20": str(type(ema20))
+        }
 
+        # ✅ 8. Filterlogik mit harter Typprüfung
+        is_valid_rsi = isinstance(latest_rsi, (float, int)) and 30 < latest_rsi < 70
+        is_valid_atr = isinstance(atr, (float, int)) and atr > 0
+        is_valid_volume = isinstance(volume, (float, int)) and volume > 100_000
+        is_valid_gap = isinstance(gap, (float, int)) and abs(gap) < 0.05
+
+        # 🎯 9. Signal generieren
         if all([is_valid_rsi, is_valid_atr, is_valid_volume, is_valid_gap]):
             debug_log["valid"] = True
             direction = "Long" if trend == "Bullish" else "Short"
